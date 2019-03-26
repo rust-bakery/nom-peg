@@ -1,0 +1,13 @@
+[package]
+name = "nom_peg"
+version = "0.1.0"
+authors = ["Evelyn_H <hobert.evelyn@gmail.com>"]
+# edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "^0.15.26", features = ["full", "extra-traits"] }
+quote = "^0.6.11"
+proc-macro2 = "*"
