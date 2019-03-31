@@ -24,13 +24,13 @@ use nom::peg::peg_grammar;
 fn peg_test() {
     let parser = peg_grammar! {
         p = &"a"* "a"* => { "yay" }
-        a = "a"* => { "" }
-        q = a ("b" | "c") => { "boo" }
+        q = a ("b" | "c") => { result.1 }
+        a = "a"* => { result[0] }
     };
 
     assert_eq!(parser.p("abc"), Ok(("bc", "yay")));
     assert_eq!(parser.p("aaaaaaab"), Ok(("b", "yay")));
 
-    assert_eq!(parser.q("abcc"), Ok(("cc", "boo")));
-    assert_eq!(parser.q("aaaaaaab"), Ok(("", "boo")));
+    assert_eq!(parser.q("abcc"), Ok(("cc", "b")));
+    assert_eq!(parser.q("aaaaaaac"), Ok(("", "c")));
 }

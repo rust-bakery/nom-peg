@@ -58,9 +58,6 @@ impl ToTokens for ParseTree {
                     {
                         struct PEGParser {}
                         impl PEGParser {
-                            // fn #name<'a>(&self, input: &'a str) -> ::nom::IResult<&'a str, &'a str> {
-                            //     do_parse!(input, #expr >> (#block))
-                            // }
                             #(
                                 #functions
                             )*
@@ -75,19 +72,18 @@ impl ToTokens for ParseTree {
                         // }
                         // |input: &str| do_parse!(input, #expr >> (#block))
                     }
-                    // named!(#name<CompleteStr, CompleteStr>, do_parse!(#expr >> (#block)));
                 }
             }
 
             ParseTree::Function(name, expr, block) => {
                 let block = match block {
-                    Some(block) => quote! { #block },
-                    None => quote! { parser_result },
+                    Some(block) => quote! { >> ( #block ) },
+                    None => quote! {  },
                 };
 
                 quote! {
                     fn #name<'a>(&self, input: &'a str) -> ::nom::IResult<&'a str, &'a str> {
-                        do_parse!(input, #expr >> (#block))
+                        do_parse!(input, result: #expr #block)
                     }
                     // named!(#name<CompleteStr, CompleteStr>, do_parse!(#expr >> (#block)));
                 }
@@ -105,8 +101,8 @@ impl ToTokens for ParseTree {
 
             ParseTree::Sequence(seq) => {
                 quote! {
-                    do_parse!(#(#seq >> )* ())
-                    // tuple!(#(#seq),*)
+                    // do_parse!(#(#seq >> )* ())
+                    tuple!(#(#seq),*)
                 }
                 // #( { #seq } );*
             }
