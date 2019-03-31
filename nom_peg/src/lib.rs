@@ -7,7 +7,7 @@ use quote::{quote, ToTokens, TokenStreamExt};
 
 extern crate syn;
 use syn::{
-    parenthesized, parse::Parse, parse::ParseStream, parse_macro_input, token::Paren, Block, Ident,
+    parenthesized, parse::Parse, parse::ParseStream, parse_macro_input, token::Paren, Block, Ident, Type,
     LitStr, Token,
 };
 
@@ -19,7 +19,7 @@ enum ParseTree {
     Terminal(String),
     NonTerminal(Ident),
     // Grouping(Box<ParseTree>),
-    Sequence(Vec<ParseTree>),
+    Sequence(Vec<ParseTree>, Option<Block>),
     Choice(Vec<ParseTree>),
     Many0(Box<ParseTree>),
     Many1(Box<ParseTree>),
@@ -27,7 +27,7 @@ enum ParseTree {
     Peek(Box<ParseTree>),
     Not(Box<ParseTree>),
 
-    ParserDefinition(Ident, Box<ParseTree>, Option<Block>),
+    ParserDefinition(Ident, Option<Type>, Box<ParseTree>),
     DefinitionList(Vec<ParseTree>)
 }
 
@@ -75,15 +75,14 @@ impl ToTokens for ParseTree {
                 }
             }
 
-            ParseTree::ParserDefinition(name, expr, block) => {
-                let block = match block {
-                    Some(block) => quote! { >> ( #block ) },
-                    None => quote! { >> ()},
+            ParseTree::ParserDefinition(name, return_type, expr) => {
+                let return_type = match return_type {
+                    Some(return_type) => quote! { #return_type },
+                    None => quote! { &'input str },
                 };
-
                 quote! {
-                    fn #name<'a>(&self, input: &'a str) -> ::nom::IResult<&'a str, &'a str> {
-                        do_parse!(input, result: #expr #block)
+                    fn #name<'input>(&self, input: &'input str) -> ::nom::IResult<&'input str, #return_type> {
+                        do_parse!(input, __ret: #expr >> (__ret))
                     }
                     // named!(#name<CompleteStr, CompleteStr>, do_parse!(#expr >> (#block)));
                 }
@@ -99,10 +98,15 @@ impl ToTokens for ParseTree {
                 take!(0)
             },
 
-            ParseTree::Sequence(seq) => {
+            ParseTree::Sequence(seq, block) => {
+                let block = match block {
+                    Some(block) => quote! { ( #block ) },
+                    None => quote! { (result) },
+                };
+
                 quote! {
-                    // do_parse!(#(#seq >> )* ())
-                    tuple!(#(#seq),*)
+                    do_parse!(result: tuple!(#(#seq),*) >> #block)
+                    // tuple!(#(#seq),*)
                 }
                 // #( { #seq } );*
             }
@@ -205,7 +209,7 @@ fn parse_element(input: ParseStream) -> syn::Result<ParseTree> {
     let lookahead = input.lookahead1();
     let mut parsed = if lookahead.peek(Ident) {
         // if there's an '=' sign following it's the start of a new definition
-        if input.peek2(Token![=]) {
+        if input.peek2(Token![=]) && !input.peek2(Token![=>]){
             Err(input.error("Reached start of new definition."))
         } else {
             // Non-Terminal / Indentifier
@@ -256,11 +260,23 @@ fn parse_sequence(input: ParseStream) -> syn::Result<ParseTree> {
             Err(_) => break,
         }
     }
-    match expressions.len() {
-        0 => Ok(ParseTree::Empty),
-        1 => Ok(expressions.remove(0)),
-        _ => Ok(ParseTree::Sequence(expressions)),
-    }
+
+    // let seq = match expressions.len() {
+    //     0 => Ok(ParseTree::Empty),
+    //     1 => Ok(expressions.remove(0)),
+    //     _ => Ok(ParseTree::Sequence(expressions)),
+    // };
+
+    // Parse action code
+    let block = if input.peek(Token![=>]) {
+        // need a '=>', otherwise we don't have any action code
+        input.parse::<Token![=>]>()?; // just skip past this
+        Some(input.parse::<Block>()?)
+    } else {
+        None
+    };
+
+    Ok(ParseTree::Sequence(expressions, block))
 }
 
 fn parse_expression(input: ParseStream) -> syn::Result<ParseTree> {
@@ -282,22 +298,23 @@ fn parse_expression(input: ParseStream) -> syn::Result<ParseTree> {
 fn parse_definition(input: ParseStream) -> syn::Result<ParseTree> {
     // parse name
     let name = input.parse::<Ident>()?;
-    // then and equals sign
+
+    // optionally parse a type
+    let return_type = if input.peek(Token![:]) {
+        input.parse::<Token![:]>()?; // just skip past this
+        Some(input.parse::<Type>()?)
+    } else {
+        None
+    };
+
+    // then an equals sign
     input.parse::<Token![=]>()?; // just skip past this
 
     // parse expression
     let expression = parse_expression(input)?;
 
-    // Parse transformation code
-    let block = if input.peek(Token![=>]) {
-        input.parse::<Token![=>]>()?; // just skip past this
-        Some(input.parse::<Block>()?)
-    } else {
-        None
-    };
-
     // Final ast node
-    Ok(ParseTree::ParserDefinition(name, Box::new(expression), block))
+    Ok(ParseTree::ParserDefinition(name, return_type, Box::new(expression)))
 }
 
 impl Parse for ParseTree {
@@ -313,7 +330,7 @@ impl Parse for ParseTree {
 }
 
 #[proc_macro]
-pub fn peg_grammar(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn grammar(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let parse_tree = parse_macro_input!(tokens as ParseTree);
     eprintln!("!! input: {:?}", parse_tree);
 

@@ -3,7 +3,7 @@
 #[macro_use]
 extern crate nom;
 
-use nom::peg::peg_grammar;
+use nom::peg::grammar;
 
 // Goal syntax
 // parser = peg!{
@@ -15,25 +15,47 @@ use nom::peg::peg_grammar;
 //
 //     Value = <s: [0-9]+> => { s.parse::<u64>() }
 //           | "(" <Expr> ")"
-// }
+// };
 // // and using the (sub) parsers
 // result: u64 = parser.Expr("2+2*(3-5)") // should return -2
 
 
 #[test]
 fn peg_test() {
-    let parser = peg_grammar! {
-        p = &"a"* "a"* => { "yay" }
-        q = a ("b" | "c") => { result.1 }
-          // | a "d" => { result.1 } // TODO: make this work
-        a = "a"* => { result[0] }
-        // TODO: Allow for type hints to have different return types
-        // a: String = "a"* => { result.join("") }
+
+    // I realised this grammar actually isn't correct,
+    // e.g. it doesn't parse: "3*7/2"
+    let arithmetic = grammar! {
+        parse: i64 = expr "=" => { result.0 }
+
+        expr: i64 = product ("+" product => { result.1 })* => { result.1.iter().fold(result.0, |a, i| a + i) }
+                  | product ("-" product => { result.1 })* => { result.1.iter().fold(result.0, |a, i| a + i) }
+
+        product: i64 = value ("*" value => { result.1 })* => { result.1.iter().fold(result.0, |a, i| a * i) }
+                     | value ("/" value => { result.1 })* => { result.1.iter().fold(result.0, |a, i| a / i) }
+
+        value: i64 = ("0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9")+ => { result.join("").parse::<i64>().unwrap() }
+                   | "(" expr ")" => { result.1 }
+    };
+
+    assert_eq!(arithmetic.parse("123="), Ok(("", 123 as i64)));
+    assert_eq!(arithmetic.parse("1+1="), Ok(("", 2 as i64)));
+    assert_eq!(arithmetic.parse("12+(3*7)="), Ok(("", 33 as i64)));
+    assert_eq!(arithmetic.parse("3*7*2="), Ok(("", 42 as i64)));
+
+
+    let parser = grammar! {
+        p = &"a"* "a"*  => { "yay" }
+        q: String = a ("b" | "c") => { result.0 }
+          | a "d" => { result.0 }
+        // a = "a"* => { result[0] }
+        a: String = "a"* => { result.join("") }
+        // a: Vec<&'input str> = "a"* => { result }
     };
 
     assert_eq!(parser.p("abc"), Ok(("bc", "yay")));
     assert_eq!(parser.p("aaaaaaab"), Ok(("b", "yay")));
 
-    assert_eq!(parser.q("abcc"), Ok(("cc", "b")));
-    assert_eq!(parser.q("aaaaaaac"), Ok(("", "c")));
+    assert_eq!(parser.q("aaabcc"), Ok(("cc", String::from("aaa"))));
+    assert_eq!(parser.q("aac"), Ok(("", String::from("aa"))));
 }
