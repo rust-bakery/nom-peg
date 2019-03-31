@@ -27,8 +27,8 @@ enum ParseTree {
     Peek(Box<ParseTree>),
     Not(Box<ParseTree>),
 
-    Function(Ident, Box<ParseTree>, Option<Block>),
-    FunctionList(Vec<ParseTree>)
+    ParserDefinition(Ident, Box<ParseTree>, Option<Block>),
+    DefinitionList(Vec<ParseTree>)
 }
 
 
@@ -53,13 +53,13 @@ impl ToTokens for ParseTree {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         // `__input` passed implicitly
         tokens.append_all(match self {
-            ParseTree::FunctionList(functions) => {
+            ParseTree::DefinitionList(definitions) => {
                 quote! {
                     {
                         struct PEGParser {}
                         impl PEGParser {
                             #(
-                                #functions
+                                #definitions
                             )*
                         }
                         PEGParser {}
@@ -75,10 +75,10 @@ impl ToTokens for ParseTree {
                 }
             }
 
-            ParseTree::Function(name, expr, block) => {
+            ParseTree::ParserDefinition(name, expr, block) => {
                 let block = match block {
                     Some(block) => quote! { >> ( #block ) },
-                    None => quote! {  },
+                    None => quote! { >> ()},
                 };
 
                 quote! {
@@ -148,10 +148,6 @@ impl ToTokens for ParseTree {
                     not!(#term)
                 }
             }
-
-            _ => quote! {
-                unimplemented!()
-            },
         });
     }
 }
@@ -208,9 +204,9 @@ fn parse_element(input: ParseStream) -> syn::Result<ParseTree> {
 
     let lookahead = input.lookahead1();
     let mut parsed = if lookahead.peek(Ident) {
-        // if there's an '=' sign following it's the start of a new nonterminal
+        // if there's an '=' sign following it's the start of a new definition
         if input.peek2(Token![=]) {
-            Err(input.error("Reached start of new nonterminal."))
+            Err(input.error("Reached start of new definition."))
         } else {
             // Non-Terminal / Indentifier
             Ok(ParseTree::NonTerminal(input.parse::<Ident>()?))
@@ -283,9 +279,10 @@ fn parse_expression(input: ParseStream) -> syn::Result<ParseTree> {
     }
 }
 
-fn parse_nonterminal(input: ParseStream) -> syn::Result<ParseTree> {
+fn parse_definition(input: ParseStream) -> syn::Result<ParseTree> {
     // parse name
     let name = input.parse::<Ident>()?;
+    // then and equals sign
     input.parse::<Token![=]>()?; // just skip past this
 
     // parse expression
@@ -300,18 +297,18 @@ fn parse_nonterminal(input: ParseStream) -> syn::Result<ParseTree> {
     };
 
     // Final ast node
-    Ok(ParseTree::Function(name, Box::new(expression), block))
+    Ok(ParseTree::ParserDefinition(name, Box::new(expression), block))
 }
 
 impl Parse for ParseTree {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut nonterminals: Vec<ParseTree> = Vec::with_capacity(4);
+        let mut definitions: Vec<ParseTree> = Vec::with_capacity(4);
 
-        nonterminals.push(parse_nonterminal(input)?);
+        definitions.push(parse_definition(input)?);
         while !input.is_empty() {
-            nonterminals.push(parse_nonterminal(input)?);
+            definitions.push(parse_definition(input)?);
         }
-        Ok(ParseTree::FunctionList(nonterminals))
+        Ok(ParseTree::DefinitionList(definitions))
     }
 }
 

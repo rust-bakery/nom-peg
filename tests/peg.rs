@@ -25,7 +25,10 @@ fn peg_test() {
     let parser = peg_grammar! {
         p = &"a"* "a"* => { "yay" }
         q = a ("b" | "c") => { result.1 }
+          // | a "d" => { result.1 } // TODO: make this work
         a = "a"* => { result[0] }
+        // TODO: Allow for type hints to have different return types
+        // a: String = "a"* => { result.join("") }
     };
 
     assert_eq!(parser.p("abc"), Ok(("bc", "yay")));
