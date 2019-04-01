@@ -209,7 +209,8 @@ fn parse_element(input: ParseStream) -> syn::Result<ParseTree> {
     let lookahead = input.lookahead1();
     let mut parsed = if lookahead.peek(Ident) {
         // if there's an '=' sign following it's the start of a new definition
-        if input.peek2(Token![=]) && !input.peek2(Token![=>]){
+        // if parse_definition(&input.fork()).is_ok() {
+        if (input.peek2(Token![=]) && !input.peek2(Token![=>])) || input.peek2(Token![:]) {
             Err(input.error("Reached start of new definition."))
         } else {
             // Non-Terminal / Indentifier
