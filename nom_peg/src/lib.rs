@@ -209,8 +209,10 @@ fn parse_element(input: ParseStream) -> syn::Result<ParseTree> {
     let lookahead = input.lookahead1();
     let mut parsed = if lookahead.peek(Ident) {
         // if there's an '=' sign following it's the start of a new definition
-        // if parse_definition(&input.fork()).is_ok() {
-        if (input.peek2(Token![=]) && !input.peek2(Token![=>])) || input.peek2(Token![:]) {
+        let def = parse_definition(&input.fork());
+        eprintln!("{:?}", def);
+        if def.is_ok() {
+        // if (input.peek2(Token![=]) && !input.peek2(Token![=>])) || input.peek2(Token![:]) {
             Err(input.error("Reached start of new definition."))
         } else {
             // Non-Terminal / Indentifier
@@ -255,11 +257,16 @@ fn parse_element(input: ParseStream) -> syn::Result<ParseTree> {
 
 fn parse_sequence(input: ParseStream) -> syn::Result<ParseTree> {
     let mut expressions: Vec<ParseTree> = Vec::with_capacity(4);
+
     while !input.is_empty() {
         match parse_element(input) {
             Ok(e) => expressions.push(e),
             Err(_) => break,
         }
+    }
+
+    if expressions.len() == 0 {
+        return Err(input.error("Need at least one element in a sequence"))
     }
 
     // let seq = match expressions.len() {
@@ -330,6 +337,8 @@ impl Parse for ParseTree {
     }
 }
 
+// TODO: rewrite AST enum to facilitate `impl Parse` for each variant
+// TODO: split macro parser and code generator to separate files
 #[proc_macro]
 pub fn grammar(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let parse_tree = parse_macro_input!(tokens as ParseTree);
