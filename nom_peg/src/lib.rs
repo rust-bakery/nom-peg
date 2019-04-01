@@ -7,7 +7,7 @@ use quote::{quote, ToTokens, TokenStreamExt};
 
 extern crate syn;
 use syn::{
-    parenthesized, parse::Parse, parse::ParseStream, parse_macro_input, token::Paren, Block, Ident, Type,
+    parenthesized, parse::Parse, parse::ParseStream, parse_macro_input, token::Paren, token, Block, Ident, Type,
     LitStr, Token,
 };
 
@@ -15,20 +15,34 @@ use syn::{
 
 #[derive(Debug)]
 enum ParseTree {
-    Empty,
-    Terminal(String),
-    NonTerminal(Ident),
-    // Grouping(Box<ParseTree>),
-    Sequence(Vec<ParseTree>, Option<Block>),
-    Choice(Vec<ParseTree>),
-    Many0(Box<ParseTree>),
-    Many1(Box<ParseTree>),
-    Optional(Box<ParseTree>),
-    Peek(Box<ParseTree>),
-    Not(Box<ParseTree>),
-
+    // list of all the non-terminals in this grammar
+    DefinitionList(Vec<ParseTree>),
+    // definition of a new non-terminal
     ParserDefinition(Ident, Option<Type>, Box<ParseTree>),
-    DefinitionList(Vec<ParseTree>)
+
+    // the sub-parser is wrapped in `<...>` or `<ident: ...>`
+    Capture(Box<ParseTree>, Option<Ident>),
+
+    // identifier, must be a non-terminal in this grammar
+    NonTerminal(Ident),
+    // terminal that consumes no input, equivalend to `""`
+    Sequence(Vec<ParseTree>, Option<Block>),
+    // ordered list of alternative sub-parsers
+    Empty,
+    // string literal
+    Terminal(String),
+    // sequence of sub-parsers, with optional action code at the end
+    Choice(Vec<ParseTree>),
+    // Repetition: 0 or more times
+    Many0(Box<ParseTree>),
+    // Repetition: 1 or more times
+    Many1(Box<ParseTree>),
+    // makes the sub-parser optional
+    Optional(Box<ParseTree>),
+    // evaluates the sub-parser without consuming input
+    Peek(Box<ParseTree>),
+    // negates the result of the sub-parser
+    Not(Box<ParseTree>),
 }
 
 
@@ -88,28 +102,80 @@ impl ToTokens for ParseTree {
                 }
             }
 
+            ParseTree::Capture(term, _ident) => {
+                // nothing happens here, `Capture` is just an indicator wrapper
+                // that is used in the `Sequence` code generation
+                quote! {
+                    #term
+                }
+            }
+
             ParseTree::NonTerminal(ident) => {
                 quote! {
                     call!(|input| self.#ident(input))
                 }
             }
 
-            ParseTree::Empty => quote! {
-                take!(0)
-            },
-
             ParseTree::Sequence(seq, block) => {
+
+                // check for captures in the sequence
+                let capture_map: Vec<(bool, &Option<Ident>)> = seq.iter()
+                    .map(|expr| {
+                        match expr {
+                            ParseTree::Capture(_, ident) => (true, ident),
+                            _ => (false, &None),
+                        }
+                    })
+                    .collect();
+
+                let block_prelude = if !capture_map.iter().any(|x| x.0) {
+                    // no captures, just use the original tuple
+                    quote! { let result = __result; }
+
+                } else {
+                    // indices and names for all the named captures
+                    let (indices, idents): (Vec<usize>, Vec<&Ident>) = capture_map.iter()
+                        .enumerate()
+                        .filter_map(|x| {
+                            match x {
+                                (index, (_, Some(ident))) => Some((index, ident)),
+                                (_index, (_, &None)) => None,
+                            }
+                        })
+                        .unzip();
+
+                    // indices for the anonymous captures
+                    let anon_indices: Vec<usize> = capture_map.iter()
+                        .enumerate()
+                        .filter_map(|x| {
+                            match x {
+                                (index, (true, None)) => Some(index),
+                                (_index, (_, _)) => None,
+                            }
+                        })
+                        .collect();
+
+                    quote! {
+                        let result = ( #( __result.#anon_indices ),* );
+                        #(
+                            let #idents = __result.#indices;
+                        )*
+                    }
+                };
+
                 let block = match block {
-                    Some(block) => quote! { ( #block ) },
-                    None => quote! { (result) },
+                    Some(block) => quote! { #block },
+                    None => quote! { result },
                 };
 
                 quote! {
-                    do_parse!(result: tuple!(#(#seq),*) >> #block)
-                    // tuple!(#(#seq),*)
+                    do_parse!(__result: tuple!(#(#seq),*) >> ( { #block_prelude #block } ))
                 }
-                // #( { #seq } );*
             }
+
+            ParseTree::Empty => quote! {
+                take!(0)
+            },
 
             ParseTree::Terminal(term) => {
                 quote! {
@@ -209,9 +275,7 @@ fn parse_element(input: ParseStream) -> syn::Result<ParseTree> {
     let lookahead = input.lookahead1();
     let mut parsed = if lookahead.peek(Ident) {
         // if there's an '=' sign following it's the start of a new definition
-        let def = parse_definition(&input.fork());
-        eprintln!("{:?}", def);
-        if def.is_ok() {
+        if parse_definition(&input.fork()).is_ok() {
         // if (input.peek2(Token![=]) && !input.peek2(Token![=>])) || input.peek2(Token![:]) {
             Err(input.error("Reached start of new definition."))
         } else {
@@ -229,6 +293,25 @@ fn parse_element(input: ParseStream) -> syn::Result<ParseTree> {
         // and parse the content
         // Ok(ParseTree::Grouping(Box::new(content.parse::<ParseTree>()?)))
         Ok(parse_expression(&content)?)
+    } else if lookahead.peek(Token![<]) {
+        // Capture
+        // token::Lt is Token![<], but that messed up my syntax highlighting
+        input.parse::<token::Lt>()?; // just skip past this
+
+        let ident = if input.peek(Ident) && input.peek2(Token![:]) {
+            // identifier
+            let i = Some(input.parse::<Ident>()?);
+            // and then a colon
+            input.parse::<Token![:]>()?; // just skip past this
+            i
+        } else {
+            None
+        };
+
+        let term = parse_element(&input)?;
+        input.parse::<token::Gt>()?; // just skip past this
+
+        Ok(ParseTree::Capture(Box::new(term), ident))
     } else {
         Err(lookahead.error())
     };
@@ -342,7 +425,7 @@ impl Parse for ParseTree {
 #[proc_macro]
 pub fn grammar(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let parse_tree = parse_macro_input!(tokens as ParseTree);
-    eprintln!("!! input: {:?}", parse_tree);
+    // eprintln!("!! input: {:?}", parse_tree);
 
     parse_tree.into_token_stream().into()
 }

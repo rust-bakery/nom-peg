@@ -23,21 +23,49 @@ use nom::peg::grammar;
 #[test]
 fn peg_test() {
 
+    // fn execute_op(left: i64, op: &str, right: i64) -> i64 {
+    //     match op {
+    //         "+" => left + right,
+    //         "-" => left - right,
+    //         "*" => left * right,
+    //         "/" => left / right,
+    //         _ => unreachable!()
+    //     }
+    // }
+    //
+    // let arithmetic = grammar! {
+    //     parse: i64 = expr "=" => { result.0 }
+    //
+    //     expr: i64 = product (("+" | "-") product)* => {
+    //         result.1.iter().fold(result.0, |a, i| execute_op(a, i.0, i.1))
+    //     }
+    //
+    //     product: i64 = value (("*" | "/") value)* => {
+    //         result.1.iter().fold(result.0, |a, i| execute_op(a, i.0, i.1))
+    //     }
+    //
+    //     value: i64 = ("0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9")+ => { result.join("").parse::<i64>().unwrap() }
+    //                | "(" expr ")" => { result.1 }
+    // };
+
     // this grammar is right-associative, which might give different results for integer division
     // eg. 3*7/2 should equal 10, but here it's executed as 3*(7/2), which equals 9 instead.
     let arithmetic = grammar! {
-        parse: i64 = expr "=" => { result.0 }
+        // parse: i64 = <expr> "="
+        parse: i64 = <expr> "="
 
-        expr: i64 = product "+" expr => { result.0 + result.2 }
-                  | product "-" expr => { result.0 - result.2 }
+        // expr: i64 = <l: product> "+" <r: expr> => { l + r }
+        expr: i64 = <l: product> "+" <r: expr> => { l + r }
+                  | <l: product> "+" <r: expr> => { l - r }
                   | product
 
-        product: i64 = value "*" product => { result.0 * result.2 }
-                     | value "/" product => { result.0 / result.2 }
+        product: i64 = <l: value> "*" <r: product> => { l * r }
+                     | <l: value> "/" <r: product> => { l / r }
                      | value
 
         value: i64 = ("0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9")+ => { result.join("").parse::<i64>().unwrap() }
-                   | "(" expr ")" => { result.1 }
+                   // | "(" <expr> ")"
+                   | "(" <expr> ")"
     };
 
     // I realised this grammar actually isn't correct,
@@ -58,7 +86,8 @@ fn peg_test() {
     assert_eq!(arithmetic.parse("123="), Ok(("", 123 as i64)));
     assert_eq!(arithmetic.parse("1+1="), Ok(("", 2 as i64)));
     assert_eq!(arithmetic.parse("12+(3*7)="), Ok(("", 33 as i64)));
-    assert_eq!(arithmetic.parse("3*7/2="), Ok(("", 9 as i64)));
+    // assert_eq!(arithmetic.parse("3*7/2="), Ok(("", 10 as i64))); // left-associative
+    assert_eq!(arithmetic.parse("3*7/2="), Ok(("", 9 as i64))); // right-associative
 
 
     let parser = grammar! {
