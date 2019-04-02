@@ -5,20 +5,6 @@ extern crate nom;
 
 use nom::peg::grammar;
 
-// Goal syntax
-// parser = peg!{
-//     Expr = <l: Product> ("+" <r: Product>)* => { r.fold(l, |a, i| a + i) }
-//          | <l: Product> ("-" <r: Product>)* => { r.fold(l, |a, i| a - i) }
-//
-//     Product = <l: Value> ("*" <r: Value>)* => { r.fold(l, |a, i| a * i) }
-//             | <l: Value> ("/" <r: Value>)* => { r.fold(l, |a, i| a / i) }
-//
-//     Value = <s: [0-9]+> => { s.parse::<u64>() }
-//           | "(" <Expr> ")"
-// };
-// // and using the (sub) parsers
-// result: u64 = parser.Expr("2+2*(3-5)") // should return -2
-
 
 #[test]
 fn peg_test() {
@@ -51,10 +37,8 @@ fn peg_test() {
     // this grammar is right-associative, which might give different results for integer division
     // eg. 3*7/2 should equal 10, but here it's executed as 3*(7/2), which equals 9 instead.
     let arithmetic = grammar! {
-        // parse: i64 = <expr> "="
         parse: i64 = <expr> "="
 
-        // expr: i64 = <l: product> "+" <r: expr> => { l + r }
         expr: i64 = <l: product> "+" <r: expr> => { l + r }
                   | <l: product> "+" <r: expr> => { l - r }
                   | product
@@ -64,7 +48,6 @@ fn peg_test() {
                      | value
 
         value: i64 = ("0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9")+ => { result.join("").parse::<i64>().unwrap() }
-                   // | "(" <expr> ")"
                    | "(" <expr> ")"
     };
 
