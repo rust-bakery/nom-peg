@@ -22,6 +22,8 @@ mod codegen;
 //   - repetition: exactly n times `{n}`, n or more times `{n,}`, at least n and at most m times `{n, m}`
 //   - more regex features?
 
+// TODO: option to skip whitespace
+
 #[proc_macro]
 pub fn grammar(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let parse_tree = parse_macro_input!(tokens as parser::ParseTree);

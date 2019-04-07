@@ -16,6 +16,8 @@ pub enum ParseTree {
 
     // identifier, must be a non-terminal in this grammar
     NonTerminal(Ident),
+    // call to external parser
+    Call(Ident),
     // terminal that consumes no input, equivalend to `""`
     Sequence(Vec<ParseTree>, Option<Block>),
     // ordered list of alternative sub-parsers
@@ -88,6 +90,7 @@ fn parse_element(input: ParseStream) -> syn::Result<ParseTree> {
     let prefix = parse_prefix(input);
 
     let lookahead = input.lookahead1();
+
     let mut parsed = if lookahead.peek(Ident) {
         // if there's an '=' sign following it's the start of a new definition
         if parse_definition(&input.fork()).is_ok() {
@@ -97,6 +100,10 @@ fn parse_element(input: ParseStream) -> syn::Result<ParseTree> {
             // Non-Terminal / Indentifier
             Ok(ParseTree::NonTerminal(input.parse::<Ident>()?))
         }
+    } else if lookahead.peek(Token![::]) {
+        // external function call
+        input.parse::<Token![::]>()?;
+        Ok(ParseTree::Call(input.parse::<Ident>()?))
     } else if lookahead.peek(LitStr) {
         // Terminal
         Ok(ParseTree::Terminal(input.parse::<LitStr>()?.value()))

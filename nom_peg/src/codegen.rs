@@ -75,6 +75,13 @@ impl ToTokens for ParseTree {
                 }
             }
 
+            ParseTree::Call(func) => {
+                // insert the input as the first argument
+                quote! {
+                    call!(|input| #func(input))
+                }
+            }
+
             ParseTree::Sequence(seq, block) => {
 
                 // check for captures in the sequence
@@ -89,7 +96,7 @@ impl ToTokens for ParseTree {
 
                 let block_prelude = if !capture_map.iter().any(|x| x.0) {
                     // no captures, just use the original tuple
-                    quote! { let result = __result; }
+                    quote! { let mut result = __result; }
 
                 } else {
                     // indices and names for all the named captures
@@ -115,9 +122,9 @@ impl ToTokens for ParseTree {
                         .collect();
 
                     quote! {
-                        let result = ( #( __result.#anon_indices ),* );
+                        let mut result = ( #( __result.#anon_indices ),* );
                         #(
-                            let #idents = __result.#indices;
+                            let mut #idents = __result.#indices;
                         )*
                     }
                 };
