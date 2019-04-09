@@ -18,13 +18,13 @@ pub enum ParseTree {
     NonTerminal(Ident),
     // call to external parser
     Call(Ident),
-    // terminal that consumes no input, equivalend to `""`
+    // sequence of sub-parsers, with optional action code at the end
     Sequence(Vec<ParseTree>, Option<Block>),
-    // ordered list of alternative sub-parsers
+    // terminal that consumes no input, equivalend to `""`
     Empty,
     // string literal
     Terminal(String),
-    // sequence of sub-parsers, with optional action code at the end
+    // ordered list of alternative sub-parsers
     Choice(Vec<ParseTree>),
     // Repetition: 0 or more times
     Many0(Box<ParseTree>),

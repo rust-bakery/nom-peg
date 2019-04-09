@@ -21,6 +21,7 @@ mod codegen;
 //   - any character, `.`
 //   - repetition: exactly n times `{n}`, n or more times `{n,}`, at least n and at most m times `{n, m}`
 //   - more regex features?
+//   - handle named captures inside looping constucts
 
 // TODO: option to skip whitespace
 

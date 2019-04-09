@@ -25,10 +25,8 @@ fn peg_json_test() {
         parse: JsonValue = <value> "="
 
         num: f32 = ::recognize_float => { result.parse::<f32>().unwrap() }
-        // num: i64 = ("0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9")+ => { result.join("").parse::<i64>().unwrap() }
 
         string: &'input str = "\"" <::alphanumeric> "\""
-        // string: &'input str = "\"" <s: ("a"|"b"|"c"|"d")*> "\"" => { s.join("") }
 
         boolean: bool = "false" => { false }
                       | "true" => { true }
