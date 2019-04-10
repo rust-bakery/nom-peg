@@ -1,7 +1,17 @@
 [package]
 name = "nom-peg"
 version = "0.1.0"
+description = "A PEG parser generator built on top of nom"
+
 authors = ["Evelyn_H <hobert.evelyn@gmail.com>"]
+license = "GPL-3.0-or-later"
+repository = "https://github.com/Geal/nom"
+
+readme = "README.md"
+keywords = ["parser", "parser-combinators", "parsing", "parser-generator", "nom"]
+categories = ["parsing"]
+
+
 # edition = "2018"
 
 [lib]
