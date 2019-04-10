@@ -1,11 +1,11 @@
 [package]
 name = "nom-peg"
-version = "0.1.0"
+version = "0.1.1"
 description = "A PEG parser generator built on top of nom"
 
 authors = ["Evelyn_H <hobert.evelyn@gmail.com>"]
 license = "GPL-3.0-or-later"
-repository = "https://github.com/Geal/nom"
+repository = "https://github.com/rust-bakery/nom-peg"
 
 readme = "README.md"
 keywords = ["parser", "parser-combinators", "parsing", "parser-generator", "nom"]
