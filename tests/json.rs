@@ -2,9 +2,10 @@
 
 #[macro_use]
 extern crate nom;
+extern crate nom_peg;
 
-use nom::peg::grammar;
 use nom::{alphanumeric, recognize_float};
+use nom_peg::grammar;
 
 use std::collections::HashMap;
 
@@ -52,7 +53,7 @@ fn peg_json_test() {
 
     let data = "{\"a\":42.3,\"b\":[\"x\",\"y\",12],\"c\":{\"hello\":\"world\"}}=";
     println!("{:?}", json.parse(data));
-    assert!(json.parse(data).is_ok())
+    assert!(json.parse(data).is_ok());
 
     // assert_eq!(json.parse(data), Ok(("", JsonValue::Num(0.0))));
 }

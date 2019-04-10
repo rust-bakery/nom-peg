@@ -1,5 +1,5 @@
 [package]
-name = "nom_peg"
+name = "nom-peg"
 version = "0.1.0"
 authors = ["Evelyn_H <hobert.evelyn@gmail.com>"]
 # edition = "2018"
@@ -8,6 +8,7 @@ authors = ["Evelyn_H <hobert.evelyn@gmail.com>"]
 proc-macro = true
 
 [dependencies]
+nom = "^4.2.3"
 syn = { version = "^0.15.26", features = ["full", "extra-traits"] }
 quote = "^0.6.11"
-proc-macro2 = "*"
+proc-macro2 = "^0.4.27"

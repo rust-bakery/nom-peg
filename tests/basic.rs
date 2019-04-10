@@ -2,8 +2,8 @@
 
 #[macro_use]
 extern crate nom;
-
-use nom::peg::grammar;
+extern crate nom_peg;
+use nom_peg::grammar;
 
 
 #[test]
