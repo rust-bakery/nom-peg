@@ -8,22 +8,22 @@ Grammars defined with nom-peg can freely be mixed with other nom parsers.
 ```rust
 let arithmetic = grammar! {
     // a grammar can have as many non-terminals as you want, and can return any type
-    parse: i64 = <expr> "="
+    parse: i64 = <term> "="
 
     // alternatives are separated by `|`,
     // and the `=> { ... }` syntax is used to manipulate the output of the parser before returning it
-    expr: i64 = <l: product> "+" <r: expr> => { l + r }
-              | <l: product> "+" <r: expr> => { l - r }
-              | product
+    term: i64 = <l: factor> "+" <r: term> => { l + r }
+              | <l: factor> "-" <r: term> => { l - r }
+              | factor
 
     // the `<...>` syntax is used to capture the output of a sub-parser,
     // and optionally assign it to a local variable with `<name: ...>`
-    product: i64 = <l: value> "*" <r: product> => { l * r }
-                 | <l: value> "/" <r: product> => { l / r }
+    factor: i64 = <l: value> "*" <r: factor> => { l * r }
+                 | <l: value> "/" <r: factor> => { l / r }
                  | value
 
     value: i64 = ("0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9")+ => { result.join("").parse::<i64>().unwrap() }
-               | "(" <expr> ")"
+               | "(" <term> ")"
 };
 
 // when the grammar is defined you can use any of the non-terminals as parser functions
