@@ -100,22 +100,22 @@ impl ToTokens for ParseTree {
 
                 } else {
                     // indices and names for all the named captures
-                    let (indices, idents): (Vec<usize>, Vec<&Ident>) = capture_map.iter()
+                    let (indices, idents): (Vec<syn::Index>, Vec<&Ident>) = capture_map.iter()
                         .enumerate()
                         .filter_map(|x| {
                             match x {
-                                (index, (_, Some(ident))) => Some((index, ident)),
+                                (index, (_, Some(ident))) => Some((syn::Index::from(index), ident)),
                                 (_index, (_, &None)) => None,
                             }
                         })
                         .unzip();
 
                     // indices for the anonymous captures
-                    let anon_indices: Vec<usize> = capture_map.iter()
+                    let anon_indices: Vec<syn::Index> = capture_map.iter()
                         .enumerate()
                         .filter_map(|x| {
                             match x {
-                                (index, (true, None)) => Some(index),
+                                (index, (true, None)) => Some(syn::Index::from(index)),
                                 (_index, (_, _)) => None,
                             }
                         })
