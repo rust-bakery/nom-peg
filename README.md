@@ -19,8 +19,8 @@ let arithmetic = grammar! {
     // the `<...>` syntax is used to capture the output of a sub-parser,
     // and optionally assign it to a local variable with `<name: ...>`
     factor: i64 = <l: value> "*" <r: factor> => { l * r }
-                 | <l: value> "/" <r: factor> => { l / r }
-                 | value
+                | <l: value> "/" <r: factor> => { l / r }
+                | value
 
     value: i64 = ("0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9")+ => { result.join("").parse::<i64>().unwrap() }
                | "(" <term> ")"
