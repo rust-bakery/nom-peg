@@ -5,10 +5,8 @@ extern crate nom;
 extern crate nom_peg;
 use nom_peg::grammar;
 
-
 #[test]
 fn peg_test() {
-
     // fn execute_op(left: i64, op: &str, right: i64) -> i64 {
     //     match op {
     //         "+" => left + right,
@@ -40,7 +38,7 @@ fn peg_test() {
         parse: i64 = <expr> "="
 
         expr: i64 = <l: product> "+" <r: expr> => { l + r }
-                  | <l: product> "+" <r: expr> => { l - r }
+                  | <l: product> "-" <r: expr> => { l - r }
                   | product
 
         product: i64 = <l: value> "*" <r: product> => { l * r }
@@ -71,7 +69,6 @@ fn peg_test() {
     assert_eq!(arithmetic.parse("12+(3*7)="), Ok(("", 33 as i64)));
     // assert_eq!(arithmetic.parse("3*7/2="), Ok(("", 10 as i64))); // left-associative
     assert_eq!(arithmetic.parse("3*7/2="), Ok(("", 9 as i64))); // right-associative
-
 
     let parser = grammar! {
         p = &"a"* "a"*  => { "yay" }
